@@ -29,3 +29,7 @@ Example calls:
 ## Demo
 
 See the [README](hack/README.md) in the hack directory.
+
+## References
+
+This code was adapted from Hashicorp Vault. [link](https://github.com/hashicorp/vault/tree/master/serviceregistration/kubernetes/client)

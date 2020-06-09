@@ -34,6 +34,3 @@ exit
 kubectl get secret some-secret -o yaml
 ```
 
-References:
-
-This code was adapted from Hashicorp Vault. [link](https://github.com/hashicorp/vault/tree/master/serviceregistration/kubernetes/client)
