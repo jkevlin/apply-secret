@@ -85,7 +85,7 @@ func (c *Client) GetSecret(namespace, secretName string) (*Secret, error) {
 }
 
 // ApplySecret gets a secret from the Kubernetes API.
-func (c *Client) ApplySecret(namespace, secretName, applyFilename string) error {
+func (c *Client) ApplySecret(namespace, applyFilename string) error {
 	yamlFile, err := ioutil.ReadFile(applyFilename)
 	if err != nil {
 		return fmt.Errorf("yamlFile.Get err   #%v ", err)
@@ -95,13 +95,21 @@ func (c *Client) ApplySecret(namespace, secretName, applyFilename string) error 
 	if err != nil {
 		return fmt.Errorf("Unmarshal: %v", err)
 	}
-
-	secret, err := c.GetSecret(namespace, secretName)
-	method := http.MethodPut
-	if secret == nil || secret.Metadata.Name != "" {
-		method = http.MethodPost
+	if s.Metadata.Name == "" {
+		return fmt.Errorf("YAML file must have secret name")
 	}
+	secretName := s.Metadata.Name
+
+	method := http.MethodPost
 	endpoint := fmt.Sprintf("/api/v1/namespaces/%s/secrets", namespace)
+	_, err = c.GetSecret(namespace, secretName)
+	if err == nil { // no error means it found it
+		fmt.Println("updating secret")
+		method = http.MethodPut
+		endpoint = fmt.Sprintf("/api/v1/namespaces/%s/secrets/%s", namespace, secretName)
+	} else {
+		fmt.Println("creating secret")
+	}
 
 	// Validate that we received required parameters.
 	if namespace == "" {
@@ -120,53 +128,11 @@ func (c *Client) ApplySecret(namespace, secretName, applyFilename string) error 
 	if err != nil {
 		return err
 	}
-	secret = &Secret{}
+	secret := &Secret{}
 	if err := c.do(req, secret); err != nil {
 		return err
 	}
 	return nil
-}
-
-// PatchSecret updates the secret's tags to the given ones.
-// It does so non-destructively, or in other words, without tearing down
-// the secret.
-func (c *Client) PatchSecret(namespace, secretName string, patches ...*Patch) error {
-	endpoint := fmt.Sprintf("/api/v1/namespaces/%s/secrets/%s", namespace, secretName)
-	method := http.MethodPatch
-
-	// Validate that we received required parameters.
-	if namespace == "" {
-		return ErrNamespaceUnset
-	}
-	if secretName == "" {
-		return ErrSecretNameUnset
-	}
-	if len(patches) == 0 {
-		// No work to perform.
-		return nil
-	}
-
-	var jsonPatches []map[string]interface{}
-	for _, patch := range patches {
-		if patch.Operation == Unset {
-			return errors.New("patch operation must be set")
-		}
-		jsonPatches = append(jsonPatches, map[string]interface{}{
-			"op":    patch.Operation,
-			"path":  patch.Path,
-			"value": patch.Value,
-		})
-	}
-	body, err := json.Marshal(jsonPatches)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest(method, c.config.Host+endpoint, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json-patch+json")
-	return c.do(req, nil)
 }
 
 // do executes the given request, retrying if necessary.
@@ -281,20 +247,6 @@ type Metadata struct {
 	// It will be populated but have a length of zero if the
 	// key was provided, but no values.
 	Labels map[string]string `json:"labels,omitempty"`
-}
-
-type PatchOperation string
-
-const (
-	Unset   PatchOperation = "unset"
-	Add                    = "add"
-	Replace                = "replace"
-)
-
-type Patch struct {
-	Operation PatchOperation
-	Path      string
-	Value     interface{}
 }
 
 type ErrNotFound struct {

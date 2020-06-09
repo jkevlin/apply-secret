@@ -18,27 +18,22 @@ package main
 // 	./kubeclient -call='patch-secret' -namespace='default' -secret-name='shell-demo' -patches='/metadata/labels/fizz:buzz,/metadata/labels/foo:bar'
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/jkevlin/apply-secret/client"
 )
 
-var callToMake string
 var patchesToAdd string
 var namespace string
 var secretName string
 var yamlFilename string
 
 func init() {
-	flag.StringVar(&callToMake, "call", "", `the call to make: 'get-secret' or 'apply-secret'`)
-	flag.StringVar(&patchesToAdd, "patches", "", `if call is "patch-secret", the patches to do like so: "/metadata/labels/fizz:buzz,/metadata/labels/foo:bar"`)
 	flag.StringVar(&namespace, "namespace", "", "the namespace to use")
 	flag.StringVar(&secretName, "secret-name", "", "the secret name to use")
 	flag.StringVar(&yamlFilename, "file", "", "the secret file name to apply")
@@ -58,42 +53,11 @@ func main() {
 	go func() {
 		defer close(reqCh)
 
-		switch callToMake {
-		case "get-secret":
-			secret, err := c.GetSecret(namespace, secretName)
-			if err != nil {
-				panic(err)
-			}
-			b, _ := json.Marshal(secret)
-			fmt.Printf("secret: %s\n", b)
-			return
-		case "apply-secret":
-			_, err = c.ApplySecret(namespace, secretName, yamlFilename)
-			if err != nil {
-				panic(err)
-			}
-			return
-		case "patch-secret":
-			patchPairs := strings.Split(patchesToAdd, ",")
-			var patches []*client.Patch
-			for _, patchPair := range patchPairs {
-				fields := strings.Split(patchPair, ":")
-				if len(fields) != 2 {
-					panic(fmt.Errorf("unable to split %s from selectors provided of %s", fields, patchesToAdd))
-				}
-				patches = append(patches, &client.Patch{
-					Operation: client.Replace,
-					Path:      fields[0],
-					Value:     fields[1],
-				})
-			}
-			if err := c.PatchSecret(namespace, secretName, patches...); err != nil {
-				panic(err)
-			}
-			return
-		default:
-			panic(fmt.Errorf(`unsupported call provided: %q`, callToMake))
+		err = c.ApplySecret(namespace, yamlFilename)
+		if err != nil {
+			panic(err)
 		}
+		return
 	}()
 
 	select {

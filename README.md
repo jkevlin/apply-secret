@@ -13,7 +13,7 @@ minikube that has been started.
 After building this binary, place it in the container like this:
 
 ```bash
-kubectl cp kubeclient /shell-demo:/
+kubectl cp apply-secret /shell-demo:/
 ```
 
 At first you may get 403's, which can be resolved using this:
@@ -23,5 +23,9 @@ https://github.com/fabric8io/fabric8/issues/6840#issuecomment-307560275
 Example calls:
 
 ```bash
-./apply-secret -namespace='default' -secret-name='shell-demo' -file=secret.yaml
+./apply-secret -namespace='default' -file=secret.yaml
 ```
+
+## Demo
+
+See the [README](hack/README.md) in the hack directory.
